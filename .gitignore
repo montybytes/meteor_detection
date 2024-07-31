@@ -1,0 +1,8 @@
+# folders
+.venv
+.vscode
+dataset
+
+# files
+*.json
+*.DS_Store
