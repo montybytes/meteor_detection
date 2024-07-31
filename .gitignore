@@ -2,6 +2,7 @@
 .venv
 .vscode
 dataset
+out
 
 # files
 *.json
