@@ -4,6 +4,15 @@ import numpy as np
 from shapes import Box, Line
 
 
+def load_image(path, mode=cv2.IMREAD_COLOR):
+    img = cv2.imread(path, mode)
+
+    if img is None:
+        print("Error: Could not open or find the image: ", path)
+        exit(0)
+
+    return img
+
 def binarize(img, threshold, below=0, above=255):
     thresh, bim = cv2.threshold(img, threshold, above, cv2.THRESH_BINARY)
     bim[bim < below] = below
@@ -105,3 +114,41 @@ def skeletonize(img):
             break
 
     return skeleton
+
+
+def get_area(x1, y1, x2, y2):
+    return abs(x2 - x1) * abs(y2 - y1)
+
+
+def is_intersecting(bbox_a, bbox_b):
+    a_x1, a_y1, a_x2, a_y2 = bbox_a
+    b_x1, b_y1, b_x2, b_y2 = bbox_b
+
+    return not (a_x2 < b_x1 or b_x2 < a_x1 or a_y2 < b_y1 or b_y2 < a_y1)
+
+
+def get_intersection_area(bbox_a, bbox_b):
+    if not is_intersecting(bbox_a, bbox_b):
+        return 0
+
+    a_x1, a_y1, a_x2, a_y2 = bbox_a
+    b_x1, b_y1, b_x2, b_y2 = bbox_b
+
+    int_x1, int_y1 = (max(a_x1, b_x1), max(a_y1, b_y1))
+    int_x2, int_y2 = (min(a_x2, b_x2), min(a_y2, b_y2))
+
+    return get_area(int_x1, int_y1, int_x2, int_y2)
+
+
+def get_union_area(bbox_a, bbox_b):
+    a_x1, a_y1, a_x2, a_y2 = bbox_a
+    b_x1, b_y1, b_x2, b_y2 = bbox_b
+
+    un_x1, un_y1 = (min(a_x1, b_x1), min(a_y1, b_y1))
+    un_x2, un_y2 = (max(a_x2, b_x2), max(a_y2, b_y2))
+
+    return get_area(un_x1, un_y1, un_x2, un_y2)
+
+
+def get_IoU(bbox_a, bbox_b):
+    return get_intersection_area(bbox_a, bbox_b) / get_union_area(bbox_a, bbox_b)
