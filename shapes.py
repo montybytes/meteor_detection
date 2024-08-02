@@ -1,11 +1,11 @@
 class Box:
-    x1 = y1 = x2 = y2 = 0
+    x1 = y1 = x2 = y2 = None
 
     def __init__(self, x1, y1, x2, y2):
-        self.x1 = x1
-        self.y1 = y1
-        self.x2 = x2
-        self.y2 = y2
+        self.x1 = int(x1)
+        self.y1 = int(y1)
+        self.x2 = int(x2)
+        self.y2 = int(y2)
 
     @property
     def points(self):
@@ -17,13 +17,13 @@ class Box:
 
 
 class Line:
-    x1 = y1 = x2 = y2 = 0
+    x1 = y1 = x2 = y2 = None
 
     def __init__(self, x1, y1, x2, y2):
-        self.x1 = x1
-        self.y1 = y1
-        self.x2 = x2
-        self.y2 = y2
+        self.x1 = int(x1)
+        self.y1 = int(y1)
+        self.x2 = int(x2)
+        self.y2 = int(y2)
 
     @property
     def points(self):
