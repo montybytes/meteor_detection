@@ -1,6 +1,8 @@
 import os
+import random
 import urllib
 import requests
+import argparse
 
 from concurrent.futures import ThreadPoolExecutor
 from bs4 import BeautifulSoup
@@ -8,13 +10,37 @@ from bs4 import BeautifulSoup
 
 page_url = "https://brams.aeronomie.be/data/downloader?view=downloader"
 
-year = "2024"
-month = "05"
-day = "26"
-
 fileType = "png"
 
-save_dir = "dataset_temp"
+# setting up command line argument parser
+parser = argparse.ArgumentParser()
+
+parser.add_argument(
+    "-s",
+    "--sort",
+    default=True,
+    action="store_true",
+    help="Sort files into train and validation folders [Default: true]",
+)
+parser.add_argument(
+    "date",
+    type=str,
+    default=None,
+    help="The date of the data to be downloaded Format: [DD-MM-YYYY]",
+)
+parser.add_argument(
+    "dir",
+    default=None,
+    help="The folder to save the data files to",
+)
+
+args = parser.parse_args()
+
+sort_mode = args.sort
+
+
+def sort_files():
+    return
 
 
 def extract_ids(html_text):
@@ -31,6 +57,8 @@ def extract_ids(html_text):
 def build_url_dict(stationIds):
     urls = {}
 
+    date = args.date.split("-")
+
     # select number of stations to download data
     for stationId in stationIds:
         for i in range(0, 24):
@@ -39,14 +67,14 @@ def build_url_dict(stationIds):
             params = {
                 "type": fileType,
                 "system": stationId,
-                "year": year,
-                "month": month,
-                "day": day,
+                "year": date[2],
+                "month": date[1],
+                "day": date[0],
                 "hours": hour,
                 "minutes": "00",
             }
 
-            key = "-".join([stationId, year, month, day, hour, "00"])
+            key = "-".join([stationId, date[2], date[1], date[0], hour, "00"])
             urls[key] = "{}{}".format(url, urllib.parse.urlencode(params))
 
     return urls
@@ -58,40 +86,65 @@ def download_image(url, save_path):
     if response.status_code == 200 and response.headers["Content-Type"] == "image/png":
         with open(save_path, "wb") as f:
             f.write(response.content)
+    else:
+        print("Unable to download from given url: {}".format(url))
 
     return
 
 
-def get_save_path(name):
+def get_save_path(path, name):
     filename = "{}.{}".format(name, fileType)
 
-    return os.path.join(save_dir, filename)
+    return os.path.join(path, filename)
+
+
+def parallel_download(urls, path):
+    # parallelizing download process
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [
+            executor.submit(download_image, url, get_save_path(path, name))
+            for name, url in urls.items()
+        ]
+        # wait for all downloads to complete
+        for future in futures:
+            future.result()
+    return
 
 
 def main():
-    if os.path.exists(save_dir):
+    if os.path.exists(args.dir):
+        print("This directory already exists")
         return
 
-    os.makedirs(save_dir)
+    os.makedirs(args.dir)
 
     # get html content from url
     page = requests.get(page_url)
 
-    # extract station ids from the html
+    # extract station ids from the htmlww
     stationIds = extract_ids(page.content)
 
     # build a dict of download urls using the station id as each url's key
     urls = build_url_dict(stationIds)
 
-    # parallelizing download process
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [
-            executor.submit(download_image, value, get_save_path(key))
-            for key, value in urls.items()
-        ]
-        # wait for all downloads to complete
-        for future in futures:
-            future.result()
+    if sort_mode:
+        urls = list(urls.items())
+        random.shuffle(urls)
+        split_index = int(len(urls) * 0.8)
+
+        train_dir = os.path.join(args.dir, "images", "train")
+        val_dir = os.path.join(args.dir, "images", "val")
+
+        os.makedirs(train_dir)
+        os.makedirs(val_dir)
+
+        train_urls, val_urls = dict(urls[:split_index]), dict(urls[split_index:])
+
+        parallel_download(train_urls, train_dir)
+        parallel_download(val_urls, val_dir)
+
+    else:
+        parallel_download(urls, path=os.path.join(args.dir, "images"))
 
     return
 
