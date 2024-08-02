@@ -42,15 +42,6 @@ args = parser.parse_args()
 display_mode = args.display
 
 
-def load_image(path):
-    img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
-
-    if img is None:
-        print("Error: Could not open or find the image: ", path)
-        exit(0)
-    return img
-
-
 def load_parameters(path):
     try:
         with open(path) as params_file:
@@ -144,7 +135,7 @@ def display_detections(img, detections):
         deviation = utils.mapFromTo(deviation, 0, img_h / 2, 0, 1)
         vision.draw_bbox(boxes_img, box, (0, 255 - 255 * deviation, 255 * deviation))
 
-    cv2.imshow("Simple Meteor Detection", boxes_img)
+    cv2.imshow("Simple Meteor Detection: Detector(View Mode)", boxes_img)
     cv2.waitKey()
 
 
@@ -167,22 +158,21 @@ def main():
             if isfile(path):
                 imgs_dict[f] = path
 
+        print("image_name,x1,y1,x2,y2")
         for key, path in imgs_dict.items():
-            img = load_image(path)
-            detections = detect_meteors(load_image(path), params)
+            img = vision.load_image(path, cv2.IMREAD_GRAYSCALE)
+            detections = detect_meteors(img, params)
             if len(detections) == 0:
-                print("{},{},{},{},{}".format(key, "", "", "", ""))
+                continue
             else:
                 for box in detections:
                     x1, y1, x2, y2 = box.points
                     print("{},{},{},{},{}".format(key, x1, y1, x2, y2))
 
     else:
-        img = load_image(args.file)
+        img = vision.load_image(args.file, cv2.IMREAD_GRAYSCALE)
         detections = detect_meteors(img, params)
-        if len(detections) == 0:
-            print("{},{},{},{}".format("", "", "", ""))
-        else:
+        if len(detections) != 0:
             for box in detections:
                 x1, y1, x2, y2 = box.points
                 print("{},{},{},{}".format(x1, y1, x2, y2))
