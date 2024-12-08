@@ -1,3 +1,9 @@
+"""
+This python script performs only detection on an image or set of images using 
+the calibrated output from calibrator.py. The output consists of a comma-separated
+list of the bounding boxes which can then be piped into a file via the terminal.
+"""
+
 import cv2
 import json
 import argparse
@@ -38,11 +44,19 @@ parser.add_argument(
 )
 
 args = parser.parse_args()
-
+# flag to display final detections on the image if a single image is passed to the script
 display_mode = args.display
 
 
 def load_parameters(path):
+    """Routine to load calibration parameters from disk
+
+    Args:
+        path: path to the configured parameters
+
+    Returns:
+        json object containing the parameters
+    """
     try:
         with open(path) as params_file:
             return json.load(params_file)
@@ -78,12 +92,23 @@ def detect_broadbands(bboxes, threshold=5):
 
 
 def detect_meteors(img, params):
+    """Stripped down routine equivalent to routine in 
+     `calibrator.py` named vertical_extraction to perform the detection process
+
+    Args:
+        img: source image
+        params: calibrated/configured detection parameters
+
+    Returns:
+        detections: list of predicted bounding boxes
+    """
+
     # remove legends and axes (unimportant areas)
     mask = vision.create_rectangle_mask(img, 64, 64, 607, 927)
     masked = cv2.bitwise_or(img, img, mask=mask)
 
     # binarize image
-    binarized = vision.binarize(masked, params["binary_threshold"])
+    binarized = vision.binarize(masked, params["binary_threshold"], adaptive=False)
 
     # vertical erosion & dilation
     vertical_features = vision.morph(
@@ -103,7 +128,7 @@ def detect_meteors(img, params):
     # remove more vertical noise
     skeleton = vision.morph(skeleton, rows=15, cols=1, morph_type="open", iterations=2)
 
-    # detect lines from skeleton using probabilitic Hough Transform
+    # detect lines from skeleton using probabilistic Hough Transform
     lines = vision.get_lines(
         skeleton,
         rho=1,  # 1 pixel distance check
@@ -113,17 +138,26 @@ def detect_meteors(img, params):
         maxLineGap=params["hough_line_gap"],
     )
 
-    # *pass: drawing lines on image - useful for display but not necessary for final program
+    # getting bounding boxes for the lines detected
     bboxes = vision.get_bboxes(img, lines, x_pad=4)
 
+    # flattening bounding boxes array into a 1-dimensional array for fast looping
     broadbands = utils.flatten(detect_broadbands(bboxes, params["broadband_thresh"]))
 
+    # removing broadband signals from the true detection predictions
     detections = [bbox for bbox in bboxes if bbox not in broadbands]
 
     return detections
 
 
 def display_detections(img, detections):
+    """Routine to display the detections if required
+
+    Args:
+        img: source image
+        detections: list of bounding boxes
+    """
+
     boxes_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
     img_h = 607 - 64
@@ -158,6 +192,7 @@ def main():
             if isfile(path):
                 imgs_dict[f] = path
 
+        # printing the output of the detected bounding boxes in csv format
         print("image_name,x1,y1,x2,y2")
         for key, path in imgs_dict.items():
             img = vision.load_image(path, cv2.IMREAD_GRAYSCALE)
@@ -177,6 +212,7 @@ def main():
                 x1, y1, x2, y2 = box.points
                 print("{},{},{},{}".format(x1, y1, x2, y2))
 
+    # display image with predicted outputs if display flag is passed
     if display_mode:
         display_detections(img, detections)
 
